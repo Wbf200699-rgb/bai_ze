@@ -82,27 +82,10 @@ void NMI_Handler(void)
 /**
   * @brief This function handles Hard fault interrupt.
   */
-__attribute__((naked)) void HardFault_Handler(void)
+void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-  /* Post-mortem: dump the exception frame (8 words at MSP) plus fault
-   * status registers into a fixed RAM block that J-Link can read later.
-   * 0x10046F00 is safely below the deepest boot-time stack usage. */
-  __asm volatile (
-    "mrs     r0, msp                 \n"
-    "ldr     r1, =0x10046F00         \n"
-    "str     r0, [r1, #0]            \n" /* [0x00] fault-time MSP */
-    "ldmia   r0!, {r2-r5}            \n"
-    "stmia   r1!, {r2-r5}            \n" /* [0x04..0x10] R0..R3 */
-    "ldmia   r0!, {r2-r5}            \n"
-    "stmia   r1!, {r2-r5}            \n" /* [0x14..0x20] R12,LR,PC,xPSR */
-    "ldr     r0, =0xE000ED28         \n"
-    "ldr     r2, [r0, #0]            \n" /* CFSR */
-    "ldr     r0, =0xE000ED38         \n"
-    "ldr     r3, [r0, #0]            \n" /* BFAR */
-    "stmia   r1!, {r2-r3}            \n" /* [0x24] CFSR, [0x28] BFAR */
-    "b       .                       \n"
-  );
+
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
