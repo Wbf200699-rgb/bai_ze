@@ -1,0 +1,15 @@
+{
+  "cmake.sourceDirectory": [
+    "${workspaceFolder}/CM7",
+    "${workspaceFolder}/CM4"
+  ],
+  "cmake.cmakePath": "C:/Users/Lenovo/AppData/Local/stm32cube/bundles/cmake/4.3.1+st.1/bin/cmake.exe",
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+  "stm32cube-ide-build-cmake.ignoreCubeProjectDiscovery": false,
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "files.exclude": {
+    "**/build": true,
+    "**/.metadata": true
+  }
+}

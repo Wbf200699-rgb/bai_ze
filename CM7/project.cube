@@ -1,0 +1,11 @@
+{
+  "children": [],
+  "traits": [
+    {
+      "name": "cmake",
+      "files": [
+        "CMakeLists.txt"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "ARM_GCC_BIN": "E:/lenovo/stm32cubeide/STM32CubeIDE_2.2.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin",
+        "CMAKE_MAKE_PROGRAM": "C:/Users/Lenovo/AppData/Local/stm32cube/bundles/ninja/1.13.2+st.1/bin/ninja.exe"
+      },
+      "environment": {
+        "PATH": "E:/lenovo/stm32cubeide/STM32CubeIDE_2.2.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin;$penv{PATH}"
+      }
+    },
+    {
+      "name": "Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "ARM_GCC_BIN": "E:/lenovo/stm32cubeide/STM32CubeIDE_2.2.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin",
+        "CMAKE_MAKE_PROGRAM": "C:/Users/Lenovo/AppData/Local/stm32cube/bundles/ninja/1.13.2+st.1/bin/ninja.exe"
+      },
+      "environment": {
+        "PATH": "E:/lenovo/stm32cubeide/STM32CubeIDE_2.2.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin;$penv{PATH}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Debug",
+      "configurePreset": "Debug",
+      "jobs": 8
+    },
+    {
+      "name": "Release",
+      "configurePreset": "Release",
+      "jobs": 8
+    }
+  ]
+}
