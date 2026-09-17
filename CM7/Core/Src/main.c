@@ -93,7 +93,7 @@ extern void EC20_SEND_DATA(uint8_t* buffer, uint8_t len);
 extern void EC20_SEND_DATAEX(uint8_t* buffer, uint16_t len);
 extern void E103_SEND_DATAEX(uint8_t* buffer, uint16_t len);
 extern void deal_mti_data(uint8_t* buf, uint8_t* mask);
-extern int  deal_sk_data (uint8_t* buf, uint8_t* mask);
+extern void deal_sk_data (uint8_t* buf, uint8_t* mask);
 extern void deal_uwb_data(uint8_t* buf, OutFrame * UwbOut, uint8_t* mask);
 extern void deal_uwb_data_t(uint8_t* buf, OutFrame_T* UwbOut, uint8_t * mask);
 extern void send_sk_data(uint8_t cmd,uint32_t value);

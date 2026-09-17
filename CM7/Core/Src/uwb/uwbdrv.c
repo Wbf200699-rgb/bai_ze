@@ -16,7 +16,7 @@ uint8_t dev_id   = 0xff;
 uint8_t dev_role = 0xff;
 void deal_uwb_data(uint8_t* buf, OutFrame * UwbOut, uint8_t * mask) //anchor
 {
-	uint8_t tid;
+	int tid;
 
 	UwbFrame* pUwbFrame = (UwbFrame *) buf;
 
@@ -33,6 +33,8 @@ void deal_uwb_data(uint8_t* buf, OutFrame * UwbOut, uint8_t * mask) //anchor
 					tid = pUwbFrame->uwb[i].tid - 2; //HY (id+1)~20 save (id-2)~20
 				else //id skip
 					continue;
+
+				if(tid < 0 || tid >= 19) continue; //corrupted frame: tid out of 0~18
 
 				UwbOut->uwb[tid].range = pUwbFrame->uwb[i].range;
 				UwbOut->uwb[tid].aoa   = pUwbFrame->uwb[i].aoa;

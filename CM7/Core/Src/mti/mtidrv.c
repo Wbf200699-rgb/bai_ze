@@ -16,6 +16,14 @@ uint8_t CalSum(uint8_t* data, int len)
 	return sum;
 }
 
+/*Read a big-endian 32-bit value from an unaligned buffer (Xbus data) safely*/
+static uint32_t read_be32(const uint8_t *p)
+{
+	uint32_t v;
+	memcpy(&v, p, sizeof(v));
+	return __REV(v);
+}
+
 void deal_mti_data(uint8_t* buf, uint8_t * mask)
 {
 	int pos = 0;
@@ -48,7 +56,7 @@ void deal_mti_data(uint8_t* buf, uint8_t * mask)
 				case XDI_EulerAngles:
 					for(int m=0; m<3; m++)
 					{
-						uint32_t e = __REV(*((uint32_t*)&buf[pos]));
+						uint32_t e = read_be32(&buf[pos]);
 						f = *(float *)&e;
 						g_EulerAngles[m]= (int16_t)(f * 100);
 						pos        +=  4;
@@ -57,7 +65,7 @@ void deal_mti_data(uint8_t* buf, uint8_t * mask)
 				case XDI_Acceleration:
 					for(int m=0; m<3; m++)
 					{
-						uint32_t a = __REV(*((uint32_t*)&buf[pos]));
+						uint32_t a = read_be32(&buf[pos]);
 						f = *(float *)&a;
 						g_Acceleration[m]= (int16_t)(f*100);
 						pos        +=  4;
@@ -66,18 +74,18 @@ void deal_mti_data(uint8_t* buf, uint8_t * mask)
 				case XDI_MagneticField:
 					for(int m=0; m<3; m++)
 					{
-						uint32_t ma = __REV(*((uint32_t*)&buf[pos]));
+						uint32_t ma = read_be32(&buf[pos]);
 						f = *(float *)&ma;
 						g_MagneticField[m]= (int16_t)(f*100);
 						pos        +=  4;
 					}
 					break;
 				case XDI_BaroPressure:
-					g_Pressure  = __REV(*((uint32_t*)&buf[pos]));
+					g_Pressure  = read_be32(&buf[pos]);
 					pos          +=  4;
 					break;
 				case XDI_StatusWord:
-					g_StatusWord  = __REV(*((uint32_t*)&buf[pos]));
+					g_StatusWord  = read_be32(&buf[pos]);
 					pos          +=  4;
 					break;
 				default:

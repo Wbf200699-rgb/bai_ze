@@ -108,7 +108,7 @@ void uart_printf(char* fmt,...)
 	uint8_t UserTxBuffer[256];
 	va_list ap;
 	va_start(ap,fmt);
-	vsprintf((char*)UserTxBuffer,fmt,ap);
+	vsnprintf((char*)UserTxBuffer,sizeof(UserTxBuffer),fmt,ap);
 	va_end(ap);
 	HAL_UART_Transmit(&huart7,UserTxBuffer,strlen((const char*)UserTxBuffer),10);
 }
