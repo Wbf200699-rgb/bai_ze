@@ -31,6 +31,7 @@
 #include "instance.h"
 #include "deca_regs.h"
 #include "deca_device_api.h"
+#include "algorithm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,6 +56,10 @@ extern int uwbLib_start();
 /* USER CODE BEGIN PV */
 uint32_t  DEV_ROLE;
 uint64_t  poll_rx_ts = 0;
+
+/* Definitions for the extern declarations in main.h */
+double cal_angles[CAL_NUM];
+double cal_values[CAL_NUM];
 
 static dwt_config_t config = {
 		5,               // Channel number//5 - 6239.6 ~ 6739.6 MHz , 9 - 7737.2 ~ 8237.2 MHz

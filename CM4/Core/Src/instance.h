@@ -102,16 +102,16 @@ typedef struct
 	srd_msg_dsss msg_f ;       //ranging message frame with 16-bit addresses
 } instance_data_t;
 
-instance_data_t* inst;
-instance_data_t  instance;
-srd_msg_dsss table_f[MAX_ANCHOR_LIST_SIZE + 1][2];
-srd_msg_dsss table_f1[MAX_ANCHOR_LIST_SIZE + 1][2];
+extern instance_data_t* inst;
+extern instance_data_t  instance;
+extern srd_msg_dsss table_f[MAX_ANCHOR_LIST_SIZE + 1][2];
+extern srd_msg_dsss table_f1[MAX_ANCHOR_LIST_SIZE + 1][2];
 
-int16_t    inst_pdoa[MAX_ANCHOR_LIST_SIZE][2];
-uint16_t   inst_tdist[MAX_ANCHOR_LIST_SIZE][MAX_ANCHOR_LIST_SIZE];
+extern int16_t    inst_pdoa[MAX_ANCHOR_LIST_SIZE][2];
+extern uint16_t   inst_tdist[MAX_ANCHOR_LIST_SIZE][MAX_ANCHOR_LIST_SIZE];
 
-uint32_t sendtime;
-uint32_t recvtime_f[MAX_ANCHOR_LIST_SIZE][2];
+extern uint32_t sendtime;
+extern uint32_t recvtime_f[MAX_ANCHOR_LIST_SIZE][2];
 
 void rx_ok_cb(const dwt_cb_data_t *cb_data);
 void rx_to_cb(const dwt_cb_data_t *cb_data);

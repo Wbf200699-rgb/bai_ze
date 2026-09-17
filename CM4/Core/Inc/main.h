@@ -106,8 +106,8 @@ typedef struct
 #pragma pack ()
 
 #define CAL_NUM 360
-double cal_angles[CAL_NUM];
-double cal_values[CAL_NUM];
+extern double cal_angles[CAL_NUM];
+extern double cal_values[CAL_NUM];
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

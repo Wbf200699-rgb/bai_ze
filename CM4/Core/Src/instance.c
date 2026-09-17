@@ -19,6 +19,7 @@
 #include  "port.h"
 #include  "math.h"
 #include  "main.h"
+#include  "algorithm.h"
 // -------------------------------------------------------------------------------------------------------------------
 //      Data Definitions
 // -------------------------------------------------------------------------------------------------------------------
@@ -46,11 +47,20 @@ uint8_t  rx_msg[1024]; //In frame
 int16_t  pdoa1 = 0, pdoa2 = 0;
 uint8_t txTimeStamp[5] = {0, 0, 0, 0, 0};
 
+/* Definitions for the extern declarations in instance.h */
+instance_data_t* inst;
+instance_data_t  instance;
+srd_msg_dsss table_f[MAX_ANCHOR_LIST_SIZE + 1][2];
+srd_msg_dsss table_f1[MAX_ANCHOR_LIST_SIZE + 1][2];
+
+int16_t    inst_pdoa[MAX_ANCHOR_LIST_SIZE][2];
+uint16_t   inst_tdist[MAX_ANCHOR_LIST_SIZE][MAX_ANCHOR_LIST_SIZE];
+
+uint32_t sendtime;
+uint32_t recvtime_f[MAX_ANCHOR_LIST_SIZE][2];
+
 extern int16_t pit;
 extern void range_output(uint8_t* data, uint16_t len);
-extern double calc_aoa(uint8_t src, int16_t pdoa1, int16_t pdoa2);
-extern void kf_twr_init(float dt);
-extern float kf_twr_update(float meas_d);
 // -------------------------------------------------------------------------------------------------------------------
 // Functions
 // -------------------------------------------------------------------------------------------------------------------
@@ -680,7 +690,6 @@ void rx_ok_cb(const dwt_cb_data_t *cb_data)
 uint8_t    buffer[512];
 double     inst_idist[MAX_ANCHOR_LIST_SIZE];
 int16_t    inst_aoa[  MAX_ANCHOR_LIST_SIZE];
-int16_t    inst_pdoa[ MAX_ANCHOR_LIST_SIZE][2];
 volatile uint8_t timeout = MAX_ANCHOR_LIST_SIZE;
 
 void instance_config_frameheader_16bit(instance_data_t *inst)
