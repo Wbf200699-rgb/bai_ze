@@ -121,6 +121,12 @@ void uart_printf(char* fmt,...)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  *(volatile uint32_t *)(0x10046F00UL + 0x40) = 0; /* diag: zero SPI rd counter */
+  *(volatile uint32_t *)(0x10046F00UL + 0x44) = 0; /* diag: zero SPI wr counter */
+  *(volatile uint32_t *)(0x10046F00UL + 0x48) = 0; /* diag: zero step marker */
+  *(volatile uint32_t *)(0x10046F00UL + 0x50) = 0; /* diag: zero last rd num */
+  *(volatile uint32_t *)(0x10046F00UL + 0x58) = 0; /* diag: zero MSP before */
+  *(volatile uint32_t *)(0x10046F00UL + 0x5C) = 0; /* diag: zero MSP after */
 
   /* USER CODE END 1 */
 
@@ -169,15 +175,64 @@ int main(void)
   kf_twr_init(0.1f);
   /* UWB initialization */
   inst= &instance;
-  port_set_dw_ic_spi_fastrate();
+
+  /* Clear the shared frame region before touching the DW3000: if the UWB
+   * bring-up below fails, the CM7 must still see a defined region instead of
+   * uninitialised RAM that it would spin on forever. */
+  HAL_HSEM_FastTake(1);
+  memset((void*)SHD_RAM_ADDR, 0, sizeof(UwbFrame));//Max length for Anchor and Tag
+  HAL_HSEM_Release(1,0);
+
+  /* The DW3000 only tolerates a slow SPI clock while it comes out of reset
+   * and reports IDLE_RC, so the bring-up runs at the slow rate and only
+   * switches up once dwt_initialise() has succeeded. */
+  *(volatile uint32_t *)(0x10046F00UL + 0x48) = 1; /* diag step marker */
+  port_set_dw_ic_spi_slowrate();
   reset_DWIC();
-  while (!dwt_checkidlerc());
-  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+  {
+    uint32_t wait = 0;
+    while (!dwt_checkidlerc())
+    {
+      if (++wait > 2000)
+      {
+        *(volatile uint32_t *)(0x10046F00UL + 0x64) = dwt_read32bitoffsetreg(DEV_ID_ID, 0);
+        *(volatile uint32_t *)(0x10046F00UL + 0x68) = dwt_read32bitoffsetreg(SYS_STATUS_ID, 0);
+        uart_printf("DW3000 IDLE_RC timeout, DEV_ID=0x%08X SYS_STATUS=0x%08X\r\n",
+                    *(volatile uint32_t *)(0x10046F00UL + 0x64),
+                    *(volatile uint32_t *)(0x10046F00UL + 0x68));
+        /* The IC never reached IDLE_RC: running dwt_initialise() on it corrupts
+         * the CPU context. Report the failure and stop instead. */
+        while (1)
+        {
+          HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin);
+          HAL_Delay(100);
+        }
+      }
+      if ((wait % 50) == 0)
+      {
+        *(volatile uint32_t *)(0x10046F00UL + 0x68) = dwt_read32bitoffsetreg(SYS_STATUS_ID, 0);
+      }
+      HAL_Delay(1);
+    }
+  }
+  /* EXTI0 stays disabled until the DW3000 driver is fully armed (see below):
+   * enabling it here let a spurious IRQ fire dwt_isr() while dwt_initialise()
+   * was still driving SPI, which corrupted the stack (HardFault at 0x10048000). */
+  *(volatile uint32_t *)(0x10046F00UL + 0x48) = 2; /* diag step marker */
 
   if (dwt_initialise(DWT_DW_IDLE) != DWT_SUCCESS)
   {
-    return -1;
+    /* Never return from main: the startup code does bx lr which jumps into
+     * whatever LR holds. Blink the LED as an error code and stop. */
+    while (1)
+    {
+      HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin);
+      HAL_Delay(200);
+    }
   }
+  /* IC is up and configured: the driver can run at full speed from here. */
+  *(volatile uint32_t *)(0x10046F00UL + 0x48) = 3; /* diag step marker */
+  port_set_dw_ic_spi_fastrate();
 
   dwt_setleds(DWT_LEDS_ENABLE | DWT_LEDS_INIT_BLINK);
   dwt_setlnapamode(DWT_PA_ENABLE);
@@ -185,7 +240,12 @@ int main(void)
 
   if(dwt_configure(&config))
   {
-  	return -1;
+    /* Never return from main (startup does bx lr). */
+    while (1)
+    {
+      HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin);
+      HAL_Delay(200);
+    }
   }
 
   dwt_setrxantennadelay(RX_ANT_DLY);
@@ -196,6 +256,12 @@ int main(void)
   dwt_setrxtimeout(0xFFFFF);
   dwt_setcallbacks(tx_done_cb, rx_ok_cb, rx_to_cb, rx_err_cb, NULL, NULL);
   dwt_setinterrupt(SYS_ENABLE_LO_TXFRS_ENABLE_BIT_MASK | SYS_ENABLE_LO_RXFCG_ENABLE_BIT_MASK | SYS_STATUS_RXFTO_BIT_MASK | SYS_STATUS_RXPTO_BIT_MASK | SYS_STATUS_RXPHE_BIT_MASK | SYS_STATUS_RXFCE_BIT_MASK | SYS_STATUS_RXFSL_BIT_MASK | SYS_STATUS_RXSTO_BIT_MASK | SYS_STATUS_ARFE_BIT_MASK | SYS_STATUS_CIAERR_BIT_MASK, 0, DWT_ENABLE_INT);
+  /* The DW3000 driver is now fully armed: allow its IRQ line to run.
+   * Clear any stale pending edge first so we do not get an immediate
+   * spurious call before dwt_rxenable() below. */
+  __HAL_GPIO_EXTI_CLEAR_IT(DW_IRQ_Pin);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+  *(volatile uint32_t *)(0x10046F00UL + 0x48) = 4; /* diag step marker */
 #else
 //dwt_setpreambledetecttimeout(0);
 //dwt_setrxaftertxdelay(200);
@@ -216,13 +282,12 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_HSEM_FastTake(1);
-  memset((void*)SHD_RAM_ADDR, 0, sizeof(UwbFrame));//Max length for Anchor and Tag
-  HAL_HSEM_Release(1,0);
+  /* SHD_RAM_ADDR was already cleared before the DW3000 bring-up. */
 #if defined(DS_TWR_AOA_YW)
   inst->shortAdd_idx = *(uint8_t*)(SYS_CONFIG_ID);
   uart_printf(" IS ANC %d#\r\n",inst->shortAdd_idx);
   dwt_rxenable(DWT_START_RX_IMMEDIATE);
+  *(volatile uint32_t *)(0x10046F00UL + 0x48) = 5; /* diag step marker */
   anch_range_loop();
 #else
 #if 1

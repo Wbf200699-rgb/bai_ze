@@ -118,7 +118,10 @@ void reset_DWIC(void)
 {
 	HAL_GPIO_WritePin(DW_RST_GPIO_Port, DW_RST_Pin, 0);
 
-    usleep(1);
+    /* Diagnostic: the old usleep(1) gave only ~100ns of RSTn low at 240MHz,
+     * which is below what the DW3000 needs for a reliable reset. Use a
+     * millisecond-scale pulse (Qorvo examples use ~1-2ms). */
+    Sleep(1);
 
     HAL_NVIC_DisableIRQ(EXTI0_IRQn);
 
@@ -128,22 +131,27 @@ void reset_DWIC(void)
 }
 
 /* @fn      port_set_dw_ic_spi_slowrate
- * @brief   set 4.5MHz
- *          note: hspi1 is clocked from 72MHz
+ * @brief   set 4.06MHz
+ *          note: SPI6 kernel clock is PLL2P = 130MHz (see HAL_SPI_MspInit)
+ *          The DW3000 only tolerates a slow clock while it boots out of
+ *          reset, so this is what must be active for reset_DWIC() and
+ *          dwt_checkidlerc().
  * */
 void port_set_dw_ic_spi_slowrate(void)
 {
-    hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+    hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
     HAL_SPI_Init(&hspi6);
 }
 
 /* @fn      port_set_dw_ic_spi_fastrate
- * @brief   set 18MHz
- *          note: hspi1 is clocked from 72MHz
+ * @brief   set 32.5MHz
+ *          note: SPI6 kernel clock is PLL2P = 130MHz (see HAL_SPI_MspInit)
+ *          130MHz/2 = 65MHz exceeds the DW3000 SPI limit of 38MHz, so the
+ *          fastest safe divider is 4.
  * */
 void port_set_dw_ic_spi_fastrate(void)
 {
-    hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+    hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
     HAL_SPI_Init(&hspi6);
 }
 

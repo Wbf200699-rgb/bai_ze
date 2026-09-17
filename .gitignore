@@ -102,3 +102,6 @@ build/
 # Eclipse/CubeIDE workspace metadata
 .metadata/
 .code_review_properties
+
+# handoff doc contains credentials - do NOT commit
+HANDOFF.md

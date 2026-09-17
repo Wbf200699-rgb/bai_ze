@@ -70,8 +70,11 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(DW_IRQ_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PtPin */
+  /* Push-pull: open-drain leaves RSTn floating when "high" unless the board
+   * provides an external pull-up; a floating RSTn keeps the DW3000 randomly
+   * resetting so RCINIT is never observed. */
   GPIO_InitStruct.Pin = DW_RST_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(DW_RST_GPIO_Port, &GPIO_InitStruct);
@@ -98,8 +101,10 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(LED_1_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  /* Do NOT enable EXTI0 here: the DW3000 is not reset/initialised yet and a
+   * spurious IRQ on PB0 would run dwt_isr() against an unconfigured IC.
+   * The line is enabled only after dwt_setinterrupt() in main(). */
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
 

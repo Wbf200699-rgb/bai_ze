@@ -30,6 +30,7 @@
 #include "string.h"
 #include "./flash/flash_if.h"
 #include "./ringbuf/ringbuffer.h"
+#include "diag_rtt.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -184,6 +185,7 @@ void UART_RxIdle()
 	  __HAL_UART_CLEAR_IDLEFLAG(&huart6);
 	  HAL_UART_DMAStop(&huart6);
 	  rxLen6 = sizeof(buffer6) - __HAL_DMA_GET_COUNTER(huart6.hdmarx);
+	  diag_rtt_ec20_rx_isr(buffer6, rxLen6);
 	  if(strstr((char *)buffer6, "+QIURC:")) //processing commands received by 4G
 	  {
 		  if(buffer6[rxLen6-2]==0x0D && buffer6[rxLen6-1]==0x0A)
@@ -313,6 +315,10 @@ void UART_RxIdle()
 
 void frame_transfer()
 {
+	static uint32_t diag_last_tick;
+	static uint32_t diag_calls;
+	static uint32_t diag_bytes;
+	diag_calls++;
 	__disable_irq();
 	if(HAL_HSEM_FastTake(1) == HAL_OK)
 	{
@@ -321,6 +327,17 @@ void frame_transfer()
 	}
 	uint16_t len = rt_ringbuffer_get(&ring_buf, buf, sizeof(buf));
 	__enable_irq();
+	diag_bytes += len;
+	if ((HAL_GetTick() - diag_last_tick) >= 1000U)
+	{
+		diag_rtt_printf("[PIPE] tick=%lu calls=%lu ring_bytes=%lu last_len=%u role=%u id=%u rxflag=%u err=%u\r\n",
+			(unsigned long)HAL_GetTick(), (unsigned long)diag_calls, (unsigned long)diag_bytes,
+			(unsigned)len, (unsigned)dev_role, (unsigned)dev_id,
+			(unsigned)usart_rx_flag, (unsigned)error);
+		diag_last_tick = HAL_GetTick();
+		diag_calls = 0;
+		diag_bytes = 0;
+	}
 
 	if(len >= UWB_FRAME_LEN)
 	{
@@ -456,6 +473,8 @@ int main(void)
 
   /* Configure the system clock */
   SystemClock_Config();
+  diag_rtt_init();
+  diag_rtt_printf("\r\n=== UWB CM7 RTT diagnostic %s %s ===\r\n", __DATE__, __TIME__);
 /* USER CODE BEGIN Boot_Mode_Sequence_2 */
 /* When system initialization is finished, Cortex-M7 will release Cortex-M4 by means of
 HSEM notification */
@@ -486,6 +505,15 @@ Error_Handler();
   MX_USART3_UART_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  diag_rtt_printf("[BOOT] peripherals ready, sysclk=%lu\r\n", (unsigned long)SystemCoreClock);
+  diag_rtt_printf("[CFG] id=%u mode=%u port_raw=%u,%u port_u16=%u ip=%u.%u.%u.%u output=0x%02X debug=0x%02X mask=0x%02X\r\n",
+	(unsigned)*(uint8_t *)SYS_CONFIG_ID, (unsigned)*(uint8_t *)SYS_CONFIG_MODE,
+	(unsigned)*(uint8_t *)(SYS_CONFIG_PORT + 0), (unsigned)*(uint8_t *)(SYS_CONFIG_PORT + 1),
+	(unsigned)*(uint16_t *)SYS_CONFIG_PORT,
+	(unsigned)*(uint8_t *)(SYS_CONFIG_IP + 0), (unsigned)*(uint8_t *)(SYS_CONFIG_IP + 1),
+	(unsigned)*(uint8_t *)(SYS_CONFIG_IP + 2), (unsigned)*(uint8_t *)(SYS_CONFIG_IP + 3),
+	(unsigned)*(uint8_t *)SYS_CONFIG_OUTPUT, (unsigned)*(uint8_t *)SYS_CONFIG_DEBUG,
+	(unsigned)*(uint8_t *)SYS_CONFIG_MASK);
 #if 1//1 - ANCHOR need POWER UP IMU , 0 - TAG power <2w need POWER DOWN IMU
   HAL_GPIO_WritePin(IMU_POW_GPIO_Port, IMU_POW_Pin, 1);
 #endif
@@ -497,7 +525,10 @@ Error_Handler();
 //  usb_printf("************This uwbd soft build on %s,%s************\r\n",__DATE__,__TIME__);
   rt_ringbuffer_init(&ring_buf, bufferG, sizeof(bufferG));
   UART_DMA_START();
+  diag_rtt_printf("[BOOT] UART DMA started; connecting EC20\r\n");
   EC20_4G_CONNECT();
+  diag_rtt_printf("[BOOT] EC20 connect routine returned, rxflag=%u reboot=%u\r\n",
+	(unsigned)usart_rx_flag, (unsigned)ec20_reboot_num);
 //  if(*(uint8_t*)SYS_CONFIG_OUTPUT == 0x10) E103_MESH_CONNECT();
 
   init_skp_dev();

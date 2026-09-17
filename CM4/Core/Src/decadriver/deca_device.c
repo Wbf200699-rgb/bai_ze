@@ -277,6 +277,9 @@ void dwt_xfer3000
     case DW3000_SPI_RD_BIT:
         {
             readfromspi(cnt, header, length, buffer);
+            *(volatile uint32_t *)(0x10046F00UL + 0x48) = 34; /* diag: xfer3000 after readfromspi */
+            { uint32_t _msp; __asm volatile ("mrs %0, msp" : "=r"(_msp)); *(volatile uint32_t *)(0x10046F00UL + 0x6C) = _msp; }
+            { uint32_t _r7; __asm volatile ("mov %0, r7" : "=r"(_r7)); *(volatile uint32_t *)(0x10046F00UL + 0x8C) = _r7; }
 
             //check that the SPI read has correct CRC-8 byte
             //also don't do for SPICRC_CFG_ID register itself to prevent infinite recursion
@@ -371,6 +374,9 @@ void dwt_readfromdevice
 )
 {
     dwt_xfer3000(regFileID, index, length, buffer, DW3000_SPI_RD_BIT);
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 35; /* diag: readfromdevice exit */
+    { uint32_t _msp; __asm volatile ("mrs %0, msp" : "=r"(_msp)); *(volatile uint32_t *)(0x10046F00UL + 0x70) = _msp; }
+    { uint32_t _r7; __asm volatile ("mov %0, r7" : "=r"(_r7)); *(volatile uint32_t *)(0x10046F00UL + 0x90) = _r7; }
 }
 
 /*! ------------------------------------------------------------------------------------------------------------------
@@ -396,6 +402,9 @@ uint32_t dwt_read32bitoffsetreg(int regFileID, int regOffset)
     {
         regval = (regval << 8) + buffer[j] ;
     }
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 36; /* diag: read32bitoffsetreg exit */
+    { uint32_t _msp; __asm volatile ("mrs %0, msp" : "=r"(_msp)); *(volatile uint32_t *)(0x10046F00UL + 0x74) = _msp; }
+    { uint32_t _r7; __asm volatile ("mov %0, r7" : "=r"(_r7)); *(volatile uint32_t *)(0x10046F00UL + 0x94) = _r7; }
 
     return (regval);
 
@@ -773,6 +782,7 @@ int dwt_initialise(int mode)
    //uint32_t devid;
     uint32_t ldo_tune_lo;
     uint32_t ldo_tune_hi;
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 20; /* diag: initialise entry */
 
     pdw3000local->dblbuffon = DBL_BUFF_OFF; // Double buffer mode off by default / clear the flag
     pdw3000local->sleep_mode = DWT_RUNSAR;  // Configure RUN_SAR on wake by default as it is needed when running PGF_CAL
@@ -789,10 +799,12 @@ int dwt_initialise(int mode)
     pdw3000local->cbSPIErr = NULL;
 
     // Read and validate device ID return -1 if not recognised
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 21; /* diag: pre check_dev_id */
     if (dwt_check_dev_id()!=DWT_SUCCESS)
     {
         return DWT_ERROR;
     }
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 22; /* diag: post check_dev_id */
 
     //Read LDO_TUNE and BIAS_TUNE from OTP
     ldo_tune_lo = _dwt_otpread(LDOTUNELO_ADDRESS);
@@ -844,6 +856,7 @@ int dwt_initialise(int mode)
     }
     dwt_write8bitoffsetreg(XTAL_ID, 0, pdw3000local->init_xtrim);
 
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 24; /* diag: initialise done */
 
     return DWT_SUCCESS ;
 
@@ -1067,7 +1080,12 @@ uint32_t dwt_getlotid(void)
  */
 uint32_t dwt_readdevid(void)
 {
-    return dwt_read32bitoffsetreg(DEV_ID_ID, 0);
+    uint32_t id = dwt_read32bitoffsetreg(DEV_ID_ID, 0);
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 37; /* diag: readdevid exit */
+    { uint32_t _msp; __asm volatile ("mrs %0, msp" : "=r"(_msp)); *(volatile uint32_t *)(0x10046F00UL + 0x78) = _msp; }
+    { uint32_t _r7; __asm volatile ("mov %0, r7" : "=r"(_r7)); *(volatile uint32_t *)(0x10046F00UL + 0x98) = _r7; }
+    *(volatile uint32_t *)(0x10046F00UL + 0x7C) = id;
+    return id;
 }
 
 /*! ------------------------------------------------------------------------------------------------------------------
@@ -3065,6 +3083,10 @@ int dwt_check_dev_id(void)
     uint32_t  dev_id;
 
     dev_id = dwt_readdevid();
+    *(volatile uint32_t *)(0x10046F00UL + 0x48) = 38; /* diag: check_dev_id after readdevid */
+    { uint32_t _msp; __asm volatile ("mrs %0, msp" : "=r"(_msp)); *(volatile uint32_t *)(0x10046F00UL + 0x80) = _msp; }
+    { uint32_t _r7; __asm volatile ("mov %0, r7" : "=r"(_r7)); *(volatile uint32_t *)(0x10046F00UL + 0x9C) = _r7; }
+    *(volatile uint32_t *)(0x10046F00UL + 0x84) = dev_id;
 
     if (!((DWT_C0_PDOA_DEV_ID == dev_id) || (DWT_C0_DEV_ID == dev_id)))
     {
@@ -3280,8 +3302,9 @@ uint8_t dwt_checkidlerc(void)
     /* Poll DW IC until IDLE_RC event set. This means that DW IC is in IDLE_RC state and ready */
     uint32_t reg = ((uint32_t)dwt_read16bitoffsetreg(SYS_STATUS_ID, 2) << 16);
 
-    if ((reg & (SYS_STATUS_RCINIT_BIT_MASK)) == (SYS_STATUS_RCINIT_BIT_MASK))
-        return ( (reg & (SYS_STATUS_RCINIT_BIT_MASK)) == (SYS_STATUS_RCINIT_BIT_MASK));
+    /* Always return a defined value: falling off the end of a non-void
+     * function left the caller testing whatever happened to be in r0. */
+    return ((reg & (SYS_STATUS_RCINIT_BIT_MASK)) == (SYS_STATUS_RCINIT_BIT_MASK)) ? 1U : 0U;
 }
 
 /*! ------------------------------------------------------------------------------------------------------------------

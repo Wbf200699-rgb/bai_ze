@@ -8,6 +8,7 @@ add_executable(${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".elf")
 target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/Core/Inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/diag/SEGGER"
     "${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Inc"
     "${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy"
     "${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/CMSIS/Device/ST/STM32H7xx/Include"
@@ -18,6 +19,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 target_sources(${PROJECT_NAME} PRIVATE
     "../Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.c"
+    "Core/Src/diag/diag_rtt.c"
+    "Core/Src/diag/SEGGER/SEGGER_RTT.c"
     "Core/Src/dma.c"
     "Core/Src/flash/flash_if.c"
     "Core/Src/freertos.c"

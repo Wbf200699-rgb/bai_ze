@@ -18,6 +18,16 @@
 
 extern  SPI_HandleTypeDef hspi6;    /*clocked from 72MHz*/
 
+/* Diagnostic counters at a fixed RAM address for post-mortem J-Link reads. */
+#define DIAG_BASE       0x10046F00UL
+#define DIAG_SPI_RD_CNT (*(volatile uint32_t *)(DIAG_BASE + 0x40))
+#define DIAG_SPI_WR_CNT (*(volatile uint32_t *)(DIAG_BASE + 0x44))
+#define DIAG_LAST_RD    (*(volatile uint32_t *)(DIAG_BASE + 0x50))
+#define DIAG_RD_LENS    (*(volatile uint32_t *)(DIAG_BASE + 0x54))
+#define DIAG_MSP_BEFORE (*(volatile uint32_t *)(DIAG_BASE + 0x58))
+#define DIAG_MSP_AFTER  (*(volatile uint32_t *)(DIAG_BASE + 0x5C))
+#define DIAG_HAL_RET    (*(volatile uint32_t *)(DIAG_BASE + 0x60))
+
 
 /****************************************************************************//**
  *
@@ -61,6 +71,7 @@ int writetospi(uint16_t       headerLength,
                const uint8_t  *bodyBuffer)
 {
     decaIrqStatus_t  stat ;
+    DIAG_SPI_WR_CNT++;
     stat = decamutexon() ;
 
     while (HAL_SPI_GetState(&hspi6) != HAL_SPI_STATE_READY);
@@ -148,6 +159,8 @@ int readfromspi(uint16_t  headerLength,
                 uint8_t   *readBuffer)
 {
     decaIrqStatus_t  stat ;
+    DIAG_SPI_RD_CNT++;
+    *(volatile uint32_t *)(DIAG_BASE + 0x48) = 30; /* diag: readfromspi entry */
     stat = decamutexon() ;
 
     /* Blocking: Check whether previous transfer has been finished */
@@ -186,14 +199,22 @@ int readfromspi(uint16_t  headerLength,
     HAL_SPI_Transmit(&hspi6, headerBuffer, headerLength, HAL_MAX_DELAY);
     HAL_SPI_Receive(&hspi6,  readBuffer, readlength, HAL_MAX_DELAY);
 #else
-	uint8_t buf[1024];
-	HAL_SPI_TransmitReceive(&hspi6, headerBuffer, buf, (uint16_t)(headerLength+readlength), 100);
+	static uint8_t buf[1024];  /* A/B test: static (bss) instead of stack local */
+	DIAG_LAST_RD    = DIAG_SPI_RD_CNT;
+	DIAG_RD_LENS    = ((uint32_t)headerLength << 16) | (uint32_t)readlength;
+	DIAG_MSP_BEFORE = (uint32_t)__get_MSP();
+	DIAG_HAL_RET    = HAL_SPI_TransmitReceive(&hspi6, headerBuffer, buf, (uint16_t)(headerLength+readlength), 100);
+	DIAG_MSP_AFTER  = (uint32_t)__get_MSP();
+	*(volatile uint32_t *)(DIAG_BASE + 0x48) = 31; /* diag: after HAL call */
 	memcpy(readBuffer , &buf[headerLength], readlength);
+	*(volatile uint32_t *)(DIAG_BASE + 0x48) = 32; /* diag: after memcpy */
 #endif
 #endif
     HAL_GPIO_WritePin(DW_CS_GPIO_Port, DW_CS_Pin, GPIO_PIN_SET); /**< Put chip select line high */
     decamutexoff(stat);
-    
+    *(volatile uint32_t *)(DIAG_BASE + 0x48) = 33; /* diag: readfromspi exit */
+    { uint32_t _r7; __asm volatile ("mov %0, r7" : "=r"(_r7)); *(volatile uint32_t *)(DIAG_BASE + 0x88) = _r7; }
+
     return 0;
 } // end readfromspi()
 
