@@ -11,6 +11,6 @@
 
 double calc_aoa(uint8_t src, int16_t pdoa1, int16_t pdoa2);
 void kf_twr_init(float dt);
-float kf_twr_update(float meas_d);
+float kf_twr_update(uint8_t src, float meas_d);
 
 #endif /* ALGORITHM_H */

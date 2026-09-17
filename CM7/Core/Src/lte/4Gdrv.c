@@ -102,7 +102,7 @@ int ec20_send_cmd(char *cmd, char *ack, uint16_t waittime)//not fit cache mode,w
 }
 #endif
 
-static uint8_t i;
+static int i;
 void EC20_4G_CONNECT()
 {
     char SendBuff[50];
@@ -186,9 +186,9 @@ void EC20_SEND_DATAEX(uint8_t* buffer, uint16_t len)//AT+QISEND MORE THEN 256B, 
 	if(usart_rx_flag == 1 || usart_rx_flag == 2) {
 //		buf[sprintf(buf, "AT+QISEND=0,%d\r\n", len)] = 0;
 //		HAL_UART_Transmit_DMA(&huart6, buf, strlen(buf));
-		if(len == 480)       HAL_UART_Transmit_DMA(&huart6, "AT+QISEND=0,480\r\n", sizeof(buf));
-		else if(len == 188)  HAL_UART_Transmit_DMA(&huart6, "AT+QISEND=0,188\r\n", sizeof(buf));
-		else if(len == 226)  HAL_UART_Transmit_DMA(&huart6, "AT+QISEND=0,226\r\n", sizeof(buf));
+		if(len == 480)       HAL_UART_Transmit_DMA(&huart6, (uint8_t*)"AT+QISEND=0,480\r\n", sizeof("AT+QISEND=0,480\r\n") - 1);
+		else if(len == 188)  HAL_UART_Transmit_DMA(&huart6, (uint8_t*)"AT+QISEND=0,188\r\n", sizeof("AT+QISEND=0,188\r\n") - 1);
+		else if(len == 226)  HAL_UART_Transmit_DMA(&huart6, (uint8_t*)"AT+QISEND=0,226\r\n", sizeof("AT+QISEND=0,226\r\n") - 1);
 		usart_rx_flag = 0xff;
 	}
 	else if(usart_rx_flag == 3) {

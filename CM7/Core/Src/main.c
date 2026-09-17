@@ -82,7 +82,7 @@ extern uint8_t  ec20_reboot_num;
 
 extern uint32_t g_Pressure;
 extern uint32_t g_MeasureFreq;
-extern uint32_t g_SkpAltitude;
+extern uint16_t g_SkpAltitude;
 extern int16_t  g_EulerAngles[3];//X,Y,Z
 extern int16_t  g_Acceleration[3];//X,Y,Z
 extern int16_t  g_MagneticField[3];//X,Y,Z

@@ -38,6 +38,7 @@ int e103_send_cmd(char *cmd, uint8_t code, uint16_t times)
 
   while(1)
   {
+	m++;
 	usart_rx_flag = 0; i = 0;
 	HAL_UART_Transmit_DMA(&huart3,(uint8_t*)USART_TX_BUF_G,n);
 	while(usart_rx_flag == 0)//Wait for interrupt or timeout,this can used in system and no system
@@ -58,11 +59,11 @@ int e103_send_cmd(char *cmd, uint8_t code, uint16_t times)
   }
 }
 
-static uint8_t i;
+static int i;
 void E103_MESH_CONNECT()
 {
 	i = e103_send_cmd("AT\r\n",1, 0);
-	if(i != -1)
+	if(i == 0)
 	{
 		i = e103_send_cmd("AT+METYPE=2\r\n",1, 0);
 //		i = e103_send_cmd("AT+MECHANNEL=13,1\r\n",1, 0);

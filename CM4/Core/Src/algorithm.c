@@ -122,7 +122,7 @@ double calc_aoa(uint8_t src, int16_t pdoa1, int16_t pdoa2)
         pdoa_1 += 12868 * ambi_options[mink][0];
         pdoa_2 += 12868 * ambi_options[mink][1];
 #endif
-        pit = acos(sqrt(2 * ((pdoa1 / 6434) * (pdoa1 / 6434) + (pdoa2 / 6434) * (pdoa2 / 6434) + ((pdoa1 - pdoa2)/6434) * ((pdoa1 - pdoa2)/6434)) / 3 / 3.1415926)) * (180 / 3.1415926);
+        pit = acos(sqrt(2 * ((double)pdoa1 / 6434.0 * ((double)pdoa1 / 6434.0) + (double)pdoa2 / 6434.0 * ((double)pdoa2 / 6434.0) + (double)(pdoa1 - pdoa2) / 6434.0 * ((double)(pdoa1 - pdoa2) / 6434.0)) / 3 / 3.1415926)) * (180 / 3.1415926);
         double aoa =  -((int16_t)(-atan2(sqrt(3) * (double)pdoa_1, 2 * (double)pdoa_2 - (double)pdoa_1) * (180 / 3.1415926) + 600) % 360 - 180);
     	return *(uint8_t *)UWB_CONFIG_FILL1 != 0xff ? calib_aoa_linear(aoa) : aoa;
 }
@@ -181,69 +181,78 @@ static double calib_aoa_linear(double current_aoa)
     float dt;
 } KF_TWR_t;
 
-static KF_TWR_t kf_twr;
+/* One independent Kalman state per anchor (src index) so ranges of
+ * different anchors do not pollute each other. */
+static KF_TWR_t kf_twr[MAX_ANCHOR_LIST_SIZE];
 
 void kf_twr_init(float dt) {
-    kf_twr.d = 0.0f;
-    kf_twr.v = 0.0f;
-    kf_twr.dt = dt;
+    for (uint8_t src = 0; src < MAX_ANCHOR_LIST_SIZE; src++) {
+        KF_TWR_t *kf = &kf_twr[src];
 
-    kf_twr.P[0][0] = 1.0f;
-    kf_twr.P[0][1] = 0.0f;
-    kf_twr.P[1][0] = 0.0f;
-    kf_twr.P[1][1] = 1.0f;
+        kf->d = 0.0f;
+        kf->v = 0.0f;
+        kf->dt = dt;
 
-    kf_twr.Q[0] = 0.001f;
-    kf_twr.Q[1] = 0.01f;
-    kf_twr.R    = 0.005f;
+        kf->P[0][0] = 1.0f;
+        kf->P[0][1] = 0.0f;
+        kf->P[1][0] = 0.0f;
+        kf->P[1][1] = 1.0f;
+
+        kf->Q[0] = 0.001f;
+        kf->Q[1] = 0.01f;
+        kf->R    = 0.005f;
+    }
 }
 
-static void kf_twr_predict(void) {
-    float dt = kf_twr.dt;
+static void kf_twr_predict(KF_TWR_t *kf) {
+    float dt = kf->dt;
 
     // 状态预测
-    float pred_d = kf_twr.d + kf_twr.v * dt;
-    float pred_v = kf_twr.v;
+    float pred_d = kf->d + kf->v * dt;
+    float pred_v = kf->v;
 
     // 协方差预测
-    float p00 = kf_twr.P[0][0];
-    float p01 = kf_twr.P[0][1];
-    float p10 = kf_twr.P[1][0];
-    float p11 = kf_twr.P[1][1];
+    float p00 = kf->P[0][0];
+    float p01 = kf->P[0][1];
+    float p10 = kf->P[1][0];
+    float p11 = kf->P[1][1];
 
-    kf_twr.P[0][0] = p00 + dt * p10 + dt * (p01 + dt * p11) + kf_twr.Q[0];
-    kf_twr.P[0][1] = p01 + dt * p11;
-    kf_twr.P[1][0] = p10 + dt * p11;
-    kf_twr.P[1][1] = p11 + kf_twr.Q[1];
+    kf->P[0][0] = p00 + dt * p10 + dt * (p01 + dt * p11) + kf->Q[0];
+    kf->P[0][1] = p01 + dt * p11;
+    kf->P[1][0] = p10 + dt * p11;
+    kf->P[1][1] = p11 + kf->Q[1];
 
-    kf_twr.d = pred_d;
-    kf_twr.v = pred_v;
+    kf->d = pred_d;
+    kf->v = pred_v;
 }
 
-float kf_twr_update(float meas_d) {
-    kf_twr_predict();
+float kf_twr_update(uint8_t src, float meas_d) {
+    if (src >= MAX_ANCHOR_LIST_SIZE) return meas_d; //out of range: return raw measurement
+
+    KF_TWR_t *kf = &kf_twr[src];
+    kf_twr_predict(kf);
 
     // 卡尔曼增益
-    float S = kf_twr.P[0][0] + kf_twr.R;
-    float K0 = kf_twr.P[0][0] / S;
-    float K1 = kf_twr.P[1][0] / S;
+    float S = kf->P[0][0] + kf->R;
+    float K0 = kf->P[0][0] / S;
+    float K1 = kf->P[1][0] / S;
 
     // 残差
-    float y = meas_d - kf_twr.d;
+    float y = meas_d - kf->d;
 
     // 状态更新
-    kf_twr.d += K0 * y;
-    kf_twr.v += K1 * y;
+    kf->d += K0 * y;
+    kf->v += K1 * y;
 
     // 协方差更新
-    float p00 = kf_twr.P[0][0];
-    float p01 = kf_twr.P[0][1];
+    float p00 = kf->P[0][0];
+    float p01 = kf->P[0][1];
 
-    kf_twr.P[0][0] -= K0 * p00;
-    kf_twr.P[0][1] -= K0 * p01;
-    kf_twr.P[1][0] -= K1 * p00;
-    kf_twr.P[1][1] -= K1 * p01;
+    kf->P[0][0] -= K0 * p00;
+    kf->P[0][1] -= K0 * p01;
+    kf->P[1][0] -= K1 * p00;
+    kf->P[1][1] -= K1 * p01;
 
-    return kf_twr.d;
+    return kf->d;
 }
 

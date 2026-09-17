@@ -771,7 +771,7 @@ void anch_calc_distance(uint8_t* txtimestamp)
         {
             buf[4+2+28*(src+0)+0] = (src == 0) ? 20 : src;//Sid
             buf[4+2+28*(src+0)+1] = 0x1;
-            *(uint16_t *)&buf[4+2+28*(src+0)+2+8+8+0] = kf_twr_update(inst_idist[src]) * 100 - *(uint32_t *)(UWB_CONFIG_SOLT + 16);
+            *(uint16_t *)&buf[4+2+28*(src+0)+2+8+8+0] = kf_twr_update(src, inst_idist[src]) * 100 - *(uint32_t *)(UWB_CONFIG_SOLT + 16);
             *( int16_t *)&buf[4+2+28*(src+0)+2+8+8+2] = (int16_t)calc_aoa(src, inst_pdoa[src][0], inst_pdoa[src][1]);
             *( int16_t *)&buf[4+2+28*(src+0)+2+8+8+4] = (int16_t)pit;
             *( int16_t *)&buf[4+2+28*(src+0)+2+8+8+6] = inst_pdoa[src][0];
