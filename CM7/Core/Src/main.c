@@ -318,6 +318,8 @@ void frame_transfer()
 	static uint32_t diag_last_tick;
 	static uint32_t diag_calls;
 	static uint32_t diag_bytes;
+	static uint8_t  diag_last_mask;
+	static uint32_t diag_qistate_tick;
 	diag_calls++;
 	__disable_irq();
 	if(HAL_HSEM_FastTake(1) == HAL_OK)
@@ -330,13 +332,20 @@ void frame_transfer()
 	diag_bytes += len;
 	if ((HAL_GetTick() - diag_last_tick) >= 1000U)
 	{
-		diag_rtt_printf("[PIPE] tick=%lu calls=%lu ring_bytes=%lu last_len=%u role=%u id=%u rxflag=%u err=%u\r\n",
+		diag_rtt_printf("[PIPE] tick=%lu calls=%lu ring_bytes=%lu last_len=%u role=%u id=%u rxflag=%u err=%u mask=%u cfgmask=%u\r\n",
 			(unsigned long)HAL_GetTick(), (unsigned long)diag_calls, (unsigned long)diag_bytes,
 			(unsigned)len, (unsigned)dev_role, (unsigned)dev_id,
-			(unsigned)usart_rx_flag, (unsigned)error);
+			(unsigned)usart_rx_flag, (unsigned)error,
+			(unsigned)diag_last_mask, (unsigned)*(uint8_t *)SYS_CONFIG_MASK);
 		diag_last_tick = HAL_GetTick();
 		diag_calls = 0;
 		diag_bytes = 0;
+		/* Low-frequency socket-state probe: the EC20 answers are shown by
+		 * the [EC20 RX] lines, so this is read-only for the AT flow. */
+		if (((++diag_qistate_tick % 10) == 0) && (usart_rx_flag == 1 || usart_rx_flag == 2))
+		{
+			HAL_UART_Transmit_DMA(&huart6, (uint8_t *)"AT+QISTATE\r\n", sizeof("AT+QISTATE\r\n") - 1);
+		}
 	}
 
 	if(len >= UWB_FRAME_LEN)
@@ -435,6 +444,7 @@ void frame_transfer()
 					EC20_SEND_DATAEX(&frame_t.head[0], sizeof(frame_t));
 				HAL_GPIO_TogglePin(LED_0_GPIO_Port, LED_0_Pin);
 			}
+			diag_last_mask = mask;
 		}while(m);
 	}
 }
