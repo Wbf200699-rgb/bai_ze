@@ -1,7 +1,6 @@
 #include "stdio.h"
 #include "string.h"
 #include "main.h"
-#include "diag_rtt.h"
 
 #define EC20_USE_DMA
 
@@ -42,37 +41,26 @@ int ec20_send_cmd(char *cmd, uint8_t code, uint16_t times)
 
   memset(USART_TX_BUF_G,0,sizeof(USART_TX_BUF_G));
   memcpy((uint8_t*)USART_TX_BUF_G,(uint8_t*)cmd,n);
-  diag_rtt_printf("[EC20 CMD] expect=%u limit=%u: %s", (unsigned)code, (unsigned)times, cmd);
 
   while(1)
   {
 	usart_rx_flag = 0;
-	if(m++%3==0) {
-		diag_rtt_printf("[EC20 TX] attempt=%u\r\n", (unsigned)m);
-		HAL_UART_Transmit_DMA(&huart6,(uint8_t*)USART_TX_BUF_G,n);
-	}
+	if(m++%3==0) HAL_UART_Transmit_DMA(&huart6,(uint8_t*)USART_TX_BUF_G,n);
 	i = 0;
 	while(usart_rx_flag == 0)//Wait for IT or timeout,this can used in system && no system
 	{
 	    if(++i > t) break;
 	}
-	if(i > t) {
-		diag_rtt_printf("[EC20 WAIT] timeout attempt=%u\r\n", (unsigned)m);
-		continue;
-	}
+	if(i > t) continue;
 
 	if(code == usart_rx_flag)//Git the right ack
 	{
-		diag_rtt_printf("[EC20 CMD] success flag=%u attempt=%u\r\n", (unsigned)usart_rx_flag, (unsigned)m);
 		return 0;
 	}
 
 	if(times != 0) //no continue try mode
 	{
-	   if(m > 3*times) {
-		   diag_rtt_printf("[EC20 CMD] retry limit, flag=%u\r\n", (unsigned)usart_rx_flag);
-		   return times;
-	   }
+	   if(m > 3*times) return times;
 	}
 
 	if(m > 15) //Modules do not connect 4G base stations in very very poor signal conditions, power off and on
@@ -82,7 +70,6 @@ int ec20_send_cmd(char *cmd, uint8_t code, uint16_t times)
 			power_off_on();
 			ec20_reboot_num++;
 		}
-		diag_rtt_printf("[EC20 CMD] failed after %u attempts, flag=%u\r\n", (unsigned)m, (unsigned)usart_rx_flag);
 		return -1;
 	}
   }
@@ -121,7 +108,6 @@ void EC20_4G_CONNECT()
     char SendBuff[50];
 
 #ifdef EC20_USE_DMA
-	diag_rtt_printf("[EC20] connect begin\r\n");
 	i = ec20_send_cmd("ATE0\r\n",1, 0);
 	if(i != -1)
 	{
@@ -144,10 +130,7 @@ void EC20_4G_CONNECT()
 			*(uint8_t*)(SYS_CONFIG_PORT+0), *(uint8_t*)(SYS_CONFIG_PORT+1));
 	else
 		sprintf(SendBuff,"AT+QIOPEN=1,0,\"TCP\",\"%d.%d.%d.%d\",%d,0,1\r\n", 59, 110, 39, 58, 8080);
-	diag_rtt_printf("[EC20] open command from %s config\r\n",
-		(*(uint8_t *)(SYS_CONFIG_IP + 0) != 0xff) ? "flash" : "default");
 	i = ec20_send_cmd(SendBuff, 2, 0);
-	diag_rtt_printf("[EC20] QIOPEN result=%d flag=%u\r\n", i, (unsigned)usart_rx_flag);
 #else
 	i = ec20_send_cmd("ATE0\r\n", "OK", 30);
 /*  //no usefull
@@ -196,11 +179,6 @@ void EC20_SEND_DATA(uint8_t* buffer, uint8_t len)//AT+QISENDEX LESS THEN 256B
 void EC20_SEND_DATAEX(uint8_t* buffer, uint16_t len)//AT+QISEND MORE THEN 256B, LESS THEN 1024B
 {
 	uint8_t buf[20];
-	static uint32_t last_diag_tick;
-	static uint32_t calls;
-	static uint32_t prompt_cmds;
-	static uint32_t payload_writes;
-	calls++;
 	/*Used for network condition detection during the data transmission phase
 	 * if the network transmission fails
 	 * usart_rx_flag != 1
@@ -211,13 +189,11 @@ void EC20_SEND_DATAEX(uint8_t* buffer, uint16_t len)//AT+QISEND MORE THEN 256B, 
 		if(len == 480)       HAL_UART_Transmit_DMA(&huart6, (uint8_t*)"AT+QISEND=0,480\r\n", sizeof("AT+QISEND=0,480\r\n") - 1);
 		else if(len == 188)  HAL_UART_Transmit_DMA(&huart6, (uint8_t*)"AT+QISEND=0,188\r\n", sizeof("AT+QISEND=0,188\r\n") - 1);
 		else if(len == 226)  HAL_UART_Transmit_DMA(&huart6, (uint8_t*)"AT+QISEND=0,226\r\n", sizeof("AT+QISEND=0,226\r\n") - 1);
-		prompt_cmds++;
 		usart_rx_flag = 0xff;
 	}
 	else if(usart_rx_flag == 3) {
 		error = 0;
 		HAL_UART_Transmit_DMA(&huart6, buffer, len);
-		payload_writes++;
 		usart_rx_flag = 0xff;
 	}
 	else//reconnect net
@@ -225,18 +201,6 @@ void EC20_SEND_DATAEX(uint8_t* buffer, uint16_t len)//AT+QISEND MORE THEN 256B, 
 		if(++error >10)
 			EC20_4G_CONNECT();
 		else if(usart_rx_flag == 0xff)
-		{
 			HAL_UART_Transmit_DMA(&huart6, buffer, len);
-			payload_writes++;
-		}
-	}
-	if ((HAL_GetTick() - last_diag_tick) >= 1000U) {
-		diag_rtt_printf("[SEND] calls=%lu qsend=%lu payload=%lu len=%u flag=%u err=%u\r\n",
-			(unsigned long)calls, (unsigned long)prompt_cmds, (unsigned long)payload_writes,
-			(unsigned)len, (unsigned)usart_rx_flag, (unsigned)error);
-		last_diag_tick = HAL_GetTick();
-		calls = 0;
-		prompt_cmds = 0;
-		payload_writes = 0;
 	}
 }
